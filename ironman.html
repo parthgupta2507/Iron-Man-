@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iron Man — Advanced Motion Mechanics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { background:#030712; color:#fff; font-family:'Rajdhani', sans-serif; overflow-x:hidden; }
+
+  /* Perspective Container for 3D Motion Tilt */
+  .perspective-container {
+    perspective: 1200px;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Main Viewport Container */
+  .hero-viewport {
+    position:relative; width:100%; height:100%; overflow:hidden; cursor:crosshair;
+    transform-style: preserve-3d;
+    transition: transform 0.15s cubic-bezier(0.1, 0.2, 0.1, 1);
+  }
+  
+  /* Screen Shake FX */
+  @keyframes hudShake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(-12px, 10px) rotate(-0.8deg); }
+    40% { transform: translate(12px, -10px) rotate(0.8deg); }
+    60% { transform: translate(-10px, -6px) rotate(-0.4deg); }
+    80% { transform: translate(10px, 6px) rotate(0.4deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+  .hero-viewport.shake { animation: hudShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+
+  /* Top HUD Trim Gradient */
+  .hero-viewport::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px; z-index:30;
+    background:linear-gradient(90deg, transparent, #06b6d4, #ef4444, #f59e0b, #06b6d4, transparent);
+  }
+
+  .hero-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
+  .content { position:absolute; inset:0; z-index:10; pointer-events:none; }
+
+  /* Audio & Suit Controls */
+  .hud-controls {
+    position:absolute; top:28px; right:32px; z-index:35; pointer-events:all;
+    display:flex; gap:16px; align-items:center;
+  }
+  .hud-btn {
+    background:rgba(15, 23, 42, 0.75); border:1px solid rgba(6, 182, 212, 0.4);
+    color:#06b6d4; height:44px; padding:0 18px; border-radius:4px; cursor:pointer;
+    font-family:'Share Tech Mono', monospace; font-size:12px; letter-spacing:0.15em;
+    display:flex; align-items:center; gap:8px; backdrop-filter:blur(8px);
+    transition: all 0.25s ease; text-transform:uppercase;
+  }
+  .hud-btn:hover { background:rgba(6, 182, 212, 0.2); border-color:#06b6d4; color:#fff; transform:translateY(-2px); }
+  .hud-btn svg { width:18px; height:18px; fill:currentColor; }
+
+  /* Stark Header */
+  .logo {
+    position:absolute; top:28px; left:50%; transform:translateX(-50%); z-index:15;
+    text-align:center; pointer-events:none; width:100%;
+  }
+  .logo-text {
+    font-family:'Orbitron', sans-serif; font-weight:900; font-size:30px; letter-spacing:0.5em; color:#fff;
+    text-transform:uppercase;
+    text-shadow:0 0 14px rgba(6,182,212,0.8), 0 0 32px rgba(6,182,212,0.4), 2px 2px 4px rgba(0,0,0,0.9);
+  }
+  .logo-sub {
+    font-family:'Share Tech Mono', monospace; font-size:11px; letter-spacing:0.55em; color:#ef4444;
+    text-transform:uppercase; margin-top:2px;
+  }
+
+  /* Content Blocks */
+  .left {
+    position:absolute; bottom:80px; left:72px; width:440px;
+    display:flex; flex-direction:column; align-items:flex-start; gap:20px;
+    transition: transform 0.1s ease-out;
+  }
+  .right {
+    position:absolute; top:50%; right:72px; transform:translateY(-50%);
+    width:440px; text-align:right; display:flex; flex-direction:column; gap:20px; align-items:flex-end;
+    transition: transform 0.1s ease-out;
+  }
+  .eyebrow {
+    font-family:'Share Tech Mono', monospace; font-size:13px; letter-spacing:0.35em;
+    text-transform:uppercase; color:#06b6d4; padding-left:1.6rem; position:relative;
+  }
+  .eyebrow::before {
+    content:''; position:absolute; left:0; top:50%; transform:translateY(-50%);
+    width:1.1rem; height:2px; background:#06b6d4;
+  }
+  .right .eyebrow { color:#ef4444; padding:0 1.6rem 0 0; }
+  .right .eyebrow::before { left:auto; right:0; background:#ef4444; }
+
+  .title {
+    font-family:'Orbitron', sans-serif; font-weight:900; font-size:64px; line-height:0.95; color:#fff;
+    text-transform:uppercase; letter-spacing:0.02em;
+    display:flex; flex-direction:column; gap:6px;
+    text-shadow:3px 3px 0 #991b1b, 0 0 20px rgba(239,68,68,0.5);
+  }
+  .title span { display:block; }
+  .left .title span:nth-child(2){
+    color:#f59e0b;
+    text-shadow:3px 3px 0 #78350f, 0 0 20px rgba(245,158,11,0.6);
+  }
+  .right .title {
+    font-size:62px; color:#fff; align-items:flex-end;
+    text-shadow:3px 3px 0 #155e75, 0 0 20px rgba(6,182,212,0.5);
+  }
+  .right .title span:nth-child(2){
+    color:#06b6d4;
+    text-shadow:3px 3px 0 #0891b2, 0 0 24px rgba(6,182,212,0.7);
+  }
+  .desc {
+    font-size:18px; font-weight:500; line-height:1.6; letter-spacing:0.02em;
+    color:rgba(255,255,255,0.85); max-width:40ch;
+  }
+  
+  .btn {
+    font-family:'Orbitron', sans-serif; font-weight:700; font-size:13px; letter-spacing:0.25em; text-transform:uppercase;
+    padding:16px 36px; margin-top:8px; background:transparent; color:#fff; border:2px solid #06b6d4;
+    cursor:pointer; align-self:flex-start; position:relative; overflow:hidden; isolation:isolate;
+    clip-path:polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%); pointer-events:all;
+    transition:border-color .3s, color .3s, transform 0.1s;
+  }
+  .btn::after {
+    content:''; position:absolute; inset:0; background:#06b6d4;
+    transform:translateX(-105%) skewX(-12deg); transition:transform .35s cubic-bezier(.4,0,.2,1); z-index:-1;
+  }
+  .btn:hover { border-color:#22d3ee; color:#030712; }
+  .btn:hover::after { transform:translateX(0) skewX(-12deg); }
+  .btn:active { transform:scale(0.96); }
+
+  .hint {
+    position:absolute; left:50%; bottom:28px; transform:translateX(-50%); z-index:16;
+    font-family:'Share Tech Mono', monospace; font-size:12px; letter-spacing:0.3em; color:#06b6d4;
+    background:rgba(3, 7, 18, 0.75); padding:10px 24px; border-radius:4px; border:1px solid rgba(6,182,212,0.3);
+    pointer-events:none; transition:opacity .5s; text-transform:uppercase;
+  }
+
+  .repulsor-flash {
+    position:absolute; inset:0; z-index:25; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at center, rgba(224,242,254,1) 0%, rgba(6,182,212,0.8) 40%, transparent 80%);
+    mix-blend-mode:screen;
+  }
+
+  /* Specs Grid */
+  .tech-specs {
+    position:relative; z-index:20; background:#030712; padding:100px 72px;
+    border-top:1px solid rgba(6,182,212,0.2); display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:40px;
+  }
+  .spec-card {
+    background:rgba(15, 23, 42, 0.6); border:1px solid rgba(6, 182, 212, 0.2);
+    padding:32px; border-radius:8px; backdrop-filter:blur(10px);
+    transition: transform 0.3s ease, border-color 0.3s ease;
+  }
+  .spec-card:hover { transform:translateY(-8px); border-color:#06b6d4; }
+  .spec-card h3 { font-family:'Orbitron', sans-serif; color:#06b6d4; font-size:20px; margin-bottom:12px; letter-spacing:0.1em; }
+  .spec-card p { font-size:15px; color:rgba(255,255,255,0.7); line-height:1.6; }
+
+  @media (max-width:768px){
+    .logo-text{ font-size:20px; letter-spacing:0.3em; }
+    .left{ left:24px; bottom:40px; width:80%; }
+    .right{ right:24px; width:80%; display:none; }
+    .title{ font-size:42px; }
+    .desc{ font-size:15px; }
+    .tech-specs{ padding:60px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="perspective-container">
+  <div class="hero-viewport" id="viewport">
+    <canvas class="hero-canvas" id="cv"></canvas>
+
+    <div class="hud-controls">
+      <button class="hud-btn" id="audioToggle">
+        <svg id="speakerIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <span id="audioLabel">AUDIO: ON</span>
+      </button>
+    </div>
+
+    <div class="repulsor-flash" id="flash"></div>
+
+    <div class="logo">
+      <div class="logo-text">STARK INDUSTRIES</div>
+      <div class="logo-sub">MARK LXXXV &middot; NANO-TECH SUIT</div>
+    </div>
+
+    <div class="content">
+      <div class="left" id="uiLeft">
+        <span class="eyebrow">SYSTEMS ONLINE &middot; JARVIS ACTIVE</span>
+        <h1 class="title"><span>TONY</span><span>STARK</span></h1>
+        <p class="desc">Genius developer, visionary industrialist, and founder of Stark Industries. Utilizing cutting-edge molecular robotics to safeguard Earth.</p>
+        <button class="btn" id="blastBtn">Fire Repulsors</button>
+      </div>
+
+      <div class="right" id="uiRight">
+        <span class="eyebrow">ARC REACTOR &middot; 100% CAPACITY</span>
+        <h1 class="title"><span>IRON</span><span>MAN</span></h1>
+        <p class="desc">Encased in gold-titanium nano-armor. Equipped with high-density energy shields, repulsor cannons, and autonomous orbital targeting.</p>
+      </div>
+    </div>
+
+    <div class="hint" id="hint">&#9656; CLICK TO FIRE CANNON &middot; MOVE FOR TILT &amp; REVEAL &#9666;</div>
+  </div>
+</div>
+
+<section class="tech-specs">
+  <div class="spec-card">
+    <h3>ARC REACTOR</h3>
+    <p>Clean vibrational energy generating over 3 gigajoules per second. Powers the suit life-support and offensive armaments indefinitely.</p>
+  </div>
+  <div class="spec-card">
+    <h3>NANO-STRUCTURE</h3>
+    <p>Formed from millions of microscopic nanoparticles capable of instant morphing to construct energy blades, heavy cannons, or flight thrusters.</p>
+  </div>
+  <div class="spec-card">
+    <h3>F.R.I.D.A.Y. HUD</h3>
+    <p>Tactical artificial intelligence offering real-time threat analysis, weakness identification, and trajectory optimization during combat.</p>
+  </div>
+</section>
+
+<script>
+(function(){
+  const viewport = document.getElementById('viewport');
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const hint = document.getElementById('hint');
+  const blastBtn = document.getElementById('blastBtn');
+  const audioToggle = document.getElementById('audioToggle');
+  const speakerIcon = document.getElementById('speakerIcon');
+  const audioLabel = document.getElementById('audioLabel');
+  const uiLeft = document.getElementById('uiLeft');
+  const uiRight = document.getElementById('uiRight');
+  const flash = document.getElementById('flash');
+  const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  const TRAIL_LENGTH = 70;
+  let BRUSH_RADIUS = 160;
+  const OVERLAY = 'rgba(3, 7, 18, 0.25)';
+
+  const mouse = { x: -9999, y: -9999 };
+  const smooth = { x: -9999, y: -9999 };
+  let trail = [];
+  let particles = [];
+  let shockwaves = [];
+  let beams = [];
+  let hudAngle = 0;
+  let isMuted = false;
+  let scrollY = 0;
+
+  // Image Layers Setup
+  const bottom = new Image();
+  const top = new Image();
+  
+  // Set CORS attribute so high-res web images load onto the canvas without security blocks
+  bottom.crossOrigin = "anonymous";
+  top.crossOrigin = "anonymous";
+
+  // Base Photo: Civilian Tony Stark
+  bottom.src = 'stark.jpg'; 
+  // Revealed Photo: Iron Man Armor Suit
+  top.src = 'nanoparticle.jpg';
+  const off = document.createElement('canvas');
+  const offc = off.getContext('2d');
+
+  function cover(img, cw, ch) {
+    const ir = img.width / img.height, cr = cw / ch;
+    let w, h, x, y;
+    if(ir > cr) { h = ch; w = ch * ir; x = (cw - w) / 2; y = 0; }
+    else { w = cw; h = cw / ir; x = 0; y = (ch - h) / 2; }
+    return [x, y, w, h];
+  }
+
+  function resize() {
+    const w = viewport.offsetWidth, h = viewport.offsetHeight;
+    canvas.width = w * DPR; canvas.height = h * DPR;
+    off.width = w * DPR; off.height = h * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    offc.setTransform(DPR, 0, 0, DPR, 0, 0);
+    BRUSH_RADIUS = Math.max(120, Math.min(w, h) * 0.25);
+  }
+
+  resize();
+  window.addEventListener('resize', resize);
+
+  window.addEventListener('scroll', function() {
+    scrollY = window.scrollY;
+  });
+
+  function createRepulsorSparks(x, y, count = 3) {
+    for(let i = 0; i < count; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
+        life: 1.0,
+        size: Math.random() * 4 + 1,
+        color: Math.random() > 0.3 ? '#06b6d4' : '#ef4444'
+      });
+    }
+  }
+
+  function addShockwave(x, y) {
+    shockwaves.push({ x: x, y: y, radius: 10, maxRadius: 220, alpha: 1.0 });
+  }
+
+  function addBeam(x, y) {
+    const angle = Math.random() * Math.PI * 2;
+    beams.push({
+      x1: x, y1: y,
+      x2: x + Math.cos(angle) * 1500,
+      y2: y + Math.sin(angle) * 1500,
+      life: 1.0,
+      width: 14
+    });
+  }
+
+  viewport.addEventListener('mousemove', function(e) {
+    const r = viewport.getBoundingClientRect();
+    mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+    hint.style.opacity = 0;
+    createRepulsorSparks(mouse.x, mouse.y, 1);
+
+    const normX = (mouse.x - r.width/2) / (r.width/2);
+    const normY = (mouse.y - r.height/2) / (r.height/2);
+    viewport.style.transform = `rotateY(${normX * 8}deg) rotateX(${-normY * 8}deg)`;
+
+    uiLeft.style.transform = `translate(${normX * 18}px, ${normY * 18}px)`;
+    uiRight.style.transform = `translateY(-50%) translate(${normX * -18}px, ${normY * -18}px)`;
+  });
+
+  viewport.addEventListener('click', function(e) {
+    if(e.target.closest('.hud-controls') || e.target.closest('.btn')) return;
+    const r = viewport.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+
+    addShockwave(x, y);
+    addBeam(x, y);
+    createRepulsorSparks(x, y, 20);
+    fireRepulsorSound();
+  });
+
+  function render() {
+    const w = viewport.offsetWidth, h = viewport.offsetHeight;
+    
+    smooth.x += (mouse.x - smooth.x) * 0.09;
+    smooth.y += (mouse.y - smooth.y) * 0.09;
+
+    trail.unshift({ x: smooth.x, y: smooth.y });
+    if(trail.length > TRAIL_LENGTH) trail.length = TRAIL_LENGTH;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const scaleVal = 1 + (scrollY * 0.0004);
+    ctx.save();
+    ctx.scale(scaleVal, scaleVal);
+    
+    const cb = cover(bottom, w, h);
+    ctx.drawImage(bottom, cb[0], cb[1], cb[2], cb[3]);
+    ctx.fillStyle = OVERLAY;
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    offc.clearRect(0, 0, w, h);
+    offc.globalCompositeOperation = 'source-over';
+    for(let i = 0; i < trail.length; i++) {
+      const t = 1 - i / trail.length;
+      const r = BRUSH_RADIUS * (0.2 + 0.8 * t);
+      const alpha = Math.pow(t, 1.2);
+      offc.beginPath();
+      offc.arc(trail[i].x, trail[i].y, r, 0, Math.PI * 2);
+      offc.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+      offc.fill();
+    }
+    
+    offc.globalCompositeOperation = 'source-in';
+    const ct = cover(top, w, h);
+    offc.drawImage(top, ct[0], ct[1], ct[2], ct[3]);
+    offc.globalCompositeOperation = 'source-atop';
+    offc.fillStyle = OVERLAY;
+    offc.fillRect(0, 0, w, h);
+
+    ctx.drawImage(off, 0, 0, w, h);
+
+    if(mouse.x > 0) {
+      hudAngle += 0.03;
+      ctx.save();
+      ctx.translate(mouse.x, mouse.y);
+      ctx.rotate(hudAngle);
+      
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 35, 0, Math.PI * 1.5);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(0, 0, 48, Math.PI, Math.PI * 2.5);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    for(let i = beams.length - 1; i >= 0; i--) {
+      let b = beams[i];
+      b.life -= 0.08;
+      if(b.life <= 0) { beams.splice(i, 1); continue; }
+      
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = b.width * b.life;
+      ctx.globalAlpha = b.life;
+      ctx.beginPath();
+      ctx.moveTo(b.x1, b.y1);
+      ctx.lineTo(b.x2, b.y2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1.0;
+
+    for(let i = shockwaves.length - 1; i >= 0; i--) {
+      let sw = shockwaves[i];
+      sw.radius += 10;
+      sw.alpha -= 0.04;
+      if(sw.alpha <= 0) { shockwaves.splice(i, 1); continue; }
+
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = sw.alpha;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1.0;
+
+    for(let i = particles.length - 1; i >= 0; i--) {
+      let p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.life -= 0.04;
+      if(p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1.0;
+
+    requestAnimationFrame(render);
+  }
+
+  let loaded = 0;
+  const onLoad = () => { if(++loaded === 2) render(); };
+  bottom.onload = onLoad; top.onload = onLoad;
+
+  let audioCtx = null;
+  function initAudio() {
+    if(!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+    }
+  }
+  window.addEventListener('pointerdown', initAudio, { once: true });
+
+  audioToggle.addEventListener('click', function() {
+    isMuted = !isMuted;
+    audioLabel.textContent = isMuted ? 'AUDIO: OFF' : 'AUDIO: ON';
+    speakerIcon.style.fill = isMuted ? '#ef4444' : 'currentColor';
+  });
+
+  function fireRepulsorSound() {
+    if(!audioCtx || isMuted) return;
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+
+    const now = audioCtx.currentTime;
+    
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(1800, now + 0.15);
+    
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.6, now + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.4);
+
+    const subOsc = audioCtx.createOscillator();
+    const subGain = audioCtx.createGain();
+    subOsc.type = 'triangle';
+    subOsc.frequency.setValueAtTime(150, now + 0.1);
+    subOsc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+
+    subGain.gain.setValueAtTime(0.8, now + 0.1);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+    subOsc.connect(subGain);
+    subGain.connect(audioCtx.destination);
+    subOsc.start(now + 0.1);
+    subOsc.stop(now + 0.5);
+  }
+
+  blastBtn.addEventListener('click', function() {
+    initAudio();
+    viewport.classList.remove('shake');
+    void viewport.offsetWidth; 
+    viewport.classList.add('shake');
+
+    flash.animate([
+      { opacity: 0 }, { opacity: 0.9 }, { opacity: 0 }
+    ], { duration: 300, easing: 'ease-out' });
+
+    const cx = viewport.offsetWidth / 2;
+    const cy = viewport.offsetHeight / 2;
+    addShockwave(cx, cy);
+    addBeam(cx, cy);
+    createRepulsorSparks(cx, cy, 35);
+
+    fireRepulsorSound();
+  });
+
+})();
+</script>
+</body>
+</html>
