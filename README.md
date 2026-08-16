@@ -52,8 +52,6 @@ Traditional promotional pages and UI showcases are static, relying on heavy pre-
 ---
 
 ## 💻 Interface & Output
-
-* **Live Demo:** [Click here to launch the live site](https://parthgupta2507.github.io/Iron-Man-/)
 * **Features:** Custom target crosshairs, dynamic Stark Industries HUD text overlay, interactive repulsor cannon blasts with screen-shake FX, and responsive tech specification cards.
 
 ---
